@@ -1,0 +1,101 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'signing'
+    id "io.github.gradle-nexus.publish-plugin" version "1.0.0"
+}
+
+apply from: "$rootDir/gradle/versioning.gradle"
+
+sourceCompatibility = JavaVersion.VERSION_1_8
+targetCompatibility = JavaVersion.VERSION_1_8
+
+group = 'io.github.sogis'
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+    maven {
+        url "https://jars.interlis.ch"
+    }
+}
+
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.9.1'
+    
+    implementation('ch.interlis:iox-ili:1.21.6') {
+        exclude group: 'ch.ehi', module: 'ehibasics'
+    }
+    implementation group: 'ch.ehi', name: 'ehibasics', version: '1.4.1'
+    implementation group: 'ch.interlis', name: 'ili2c-tool', version: '5.2.2'
+    implementation group: 'ch.interlis', name: 'ili2c-core', version: '5.2.2'
+    
+    implementation 'org.apache.poi:poi:5.2.3'
+    implementation 'org.apache.poi:poi-ooxml:5.2.3'
+        
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+task sourcesJar(type: Jar, dependsOn: classes) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+javadoc.failOnError = false
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    classifier = 'javadoc'
+    from javadoc.destinationDir
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+            artifact sourcesJar
+            artifact javadocJar
+
+            pom {
+                name = "iox-excel"
+                url = "https://github.com/edigonzales/iox-excel"
+                description = "iox-excel"
+                scm {
+                    connection = "scm:git:https@github.com/edigonzales/iox-excel"
+                    developerConnection = "scm:git:https@github.com/edigonzales/iox-excel"
+                    url = "https://github.com/edigonzales/iox-excel"
+                }
+                licenses {
+                    license {
+                        name = "MIT"
+                        url = "https://github.com/edigonzales/iox-excel/blob/master/LICENSE"
+                    }
+                }
+                developers {
+                    developer {
+                        id = "edigonzales"
+                        name = "Stefan Ziegler"
+                    }
+                }
+            }
+        }
+    }
+}
+
+if (!version.toString().endsWith("LOCALBUILD")) {
+    signing {
+        sign publishing.publications.mavenJava
+    }
+}
+
+nexusPublishing {
+    repositories {
+        sonatype { 
+            nexusUrl.set(uri("https://s01.oss.sonatype.org/service/local/"))
+            snapshotRepositoryUrl.set(uri("https://s01.oss.sonatype.org/content/repositories/snapshots/"))
+            username = findProperty("ossrhUsername") ?: System.getenv("OSSRH_USERNAME")
+            password = findProperty("ossrhPassword") ?: System.getenv("OSSRH_PASSWORD")
+        }
+    }
+}
