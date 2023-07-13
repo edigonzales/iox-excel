@@ -3,7 +3,6 @@ package ch.interlis.ioxwkf.excel;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -58,7 +57,7 @@ public class ExcelWriterTest {
     }
 
     @Test
-    public void model_set_Ok() throws Ili2cFailure, IoxException, IOException {
+    public void model_set_Ok() throws Exception {
         // Prepare
         File parentDir = new File(TEST_OUT, "model_set_Ok");
         parentDir.mkdirs();
@@ -73,6 +72,88 @@ public class ExcelWriterTest {
         inputObj.setattrvalue("aTime", "19:51:35.123");
         inputObj.setattrvalue("aBoolean", "true");
 
+        // Run
+        ExcelWriter writer = null;
+        File file = new File(parentDir,"model_set_Ok.xlsx");
+        try {
+            writer = new ExcelWriter(file);
+            writer.setModel(td);
+            writer.write(new StartTransferEvent());
+            writer.write(new StartBasketEvent("Test1.Topic1","bid1"));
+            writer.write(new ObjectEvent(inputObj));
+            writer.write(new EndBasketEvent());
+            writer.write(new EndTransferEvent());
+        } catch(IoxException e) {
+            throw new IoxException(e);
+        } finally {
+            if(writer != null) {
+                try {
+                    writer.close();
+                } catch (IoxException e) {
+                    throw new IoxException(e);
+                }
+                writer=null;
+            }
+        }
+
+        // Validate
+        FileInputStream fis = new FileInputStream(file);        
+        XSSFWorkbook workbook = new XSSFWorkbook(fis);
+        XSSFSheet sheet = workbook.getSheetAt(0);
+
+        Row headerRow = sheet.getRow(0);
+        Assertions.assertEquals(7, headerRow.getLastCellNum());
+        
+        Row dataRow = sheet.getRow(1);
+        Assertions.assertEquals(7, dataRow.getLastCellNum());
+
+        Iterator<Cell> dataCellIterator = dataRow.cellIterator();
+        while (dataCellIterator.hasNext()) {
+            Cell cell = dataCellIterator.next();
+            String attrName = this.getAttrName(headerRow, cell.getColumnIndex());
+
+            switch (attrName) {
+                case "aText":
+                    Assertions.assertEquals("text1", cell.getStringCellValue());
+                    break;
+                case "id1":
+                    Assertions.assertEquals(1, cell.getNumericCellValue(), 0.00001);
+                    break;
+                case "aDouble":
+                    Assertions.assertEquals(53434.123, cell.getNumericCellValue(), 0.00001);
+                    break;
+                case "aDate":
+                    SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");      
+                    Date expectedDate = formatter.parse("1977-09-23");
+                    Assertions.assertEquals(expectedDate, cell.getDateCellValue());
+                    break;
+                case "aDatetime":
+                    SimpleDateFormat formatterDatetime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");                          
+                    Date resultDatetime = cell.getDateCellValue();
+                    formatterDatetime.format(resultDatetime);
+                    // Achtung: Subsekunden gehen verloren. Siehe ExcelWriter. Eventuell lösbar.
+                    Assertions.assertEquals("1977-09-23T19:51:35", formatterDatetime.format(resultDatetime));
+                    break;
+                case "aTime":
+                    SimpleDateFormat formatterTime = new SimpleDateFormat("HH:mm:ss");                          
+                    Date resultTime = cell.getDateCellValue();
+                    Assertions.assertEquals("19:51:35", formatterTime.format(resultTime));
+                    break;
+                case "aBoolean":
+                    Assertions.assertEquals(true, cell.getBooleanCellValue());
+                    break;
+                case "attrPoint":
+                    // TODO
+                    break;
+                default:
+                    throw new IllegalArgumentException("Invalid attribute name found: " + attrName);
+            }
+        }
+        
+        Assertions.assertEquals(1, sheet.getLastRowNum());
+        
+        workbook.close();
+        fis.close();
     }
     
     @Test
