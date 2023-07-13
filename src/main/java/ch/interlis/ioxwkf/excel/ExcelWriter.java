@@ -98,7 +98,7 @@ public class ExcelWriter implements IoxWriter {
             IomObject iomObj = obj.getIomObject();
             String tag = iomObj.getobjecttag();
             
-            System.out.println("tag: " + tag);
+//            System.out.println("tag: " + tag);
             
             // Wenn null, dann gibt es noch kein "Schema".
             if(attrDescs == null) {
