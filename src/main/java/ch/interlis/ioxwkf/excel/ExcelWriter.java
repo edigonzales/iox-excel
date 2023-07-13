@@ -7,8 +7,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
 
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
@@ -43,6 +46,7 @@ public class ExcelWriter implements IoxWriter {
 //    private Schema schema = null;
     private Row headerRow = null;
     private List<ExcelAttributeDescriptor> attrDescs = null;
+    private Map<String, Integer> attrOrder = null;
     private XSSFWorkbook workbook = null;
     private XSSFSheet sheet = null;
     private int rowNum = 0;
@@ -97,6 +101,7 @@ public class ExcelWriter implements IoxWriter {
             // Wenn null, dann gibt es noch kein "Schema".
             if(attrDescs == null) {
                 attrDescs = new ArrayList<>();
+                attrOrder = new HashMap<String, Integer>();
                 if(td != null) {
                     Viewable aclass = (Viewable) XSDGenerator.getTagMap(td).get(tag);
                     if (aclass == null) {
@@ -214,6 +219,7 @@ public class ExcelWriter implements IoxWriter {
                 int cellnum = 0;
                 for (ExcelAttributeDescriptor attrDesc : attrDescs) {
                     Cell cell = headerRow.createCell(cellnum++);
+
                     cell.setCellValue(attrDesc.getAttributeName());
                     
 //                    if(obj instanceof String)
@@ -227,23 +233,38 @@ public class ExcelWriter implements IoxWriter {
             
             // Ich glaube ich muss sicherstellen, dass die Reihenfolge stimmt.
             // Beim Header muss ich attrCellNums Map erstellen. Key ist attrName, value cell nr.
+            // äh nein, weil wenn ich von aussen attrDescs setzen, fehlt das. 
+            // mmmh, kann ich die headerRow verwenden und quasi aus dem Text das Attribut eruieren und entsprechend die reihe?
             
             Row row = sheet.createRow(sheet.getLastRowNum()+1);
-            int cellnum = 0;
+            //int cellnum = 0;
             for (ExcelAttributeDescriptor attrDesc : attrDescs) {
                 String attrName = attrDesc.getAttributeName();
                 
+                int cellnum = getColumnIndex(attrName);
                 // if else trallala 
                 // -typen
                 // -null
                 String attrValue = iomObj.getattrvalue(attrName);
-                Cell cell = row.createCell(cellnum++);
+                Cell cell = row.createCell(cellnum);
                 cell.setCellValue(attrValue);
 
 
             }
             
         }
+    }
+    
+    private int getColumnIndex(String attrName) throws NoSuchElementException {
+        Iterator<Cell> it = headerRow.cellIterator();
+        while (it.hasNext()) {
+            Cell cell = it.next();
+            String cellValue = cell.getStringCellValue();
+            if (cellValue.equalsIgnoreCase(attrName)) {
+                return cell.getColumnIndex();
+            }
+        }
+        throw new NoSuchElementException();
     }
     
 //    private int getRowNum() {
