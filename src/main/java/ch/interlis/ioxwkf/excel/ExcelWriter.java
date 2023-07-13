@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -14,7 +15,10 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 
 import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.CreationHelper;
 import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.DateUtil;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
@@ -43,13 +47,12 @@ import ch.interlis.iox.StartTransferEvent;
 public class ExcelWriter implements IoxWriter {
     private File outputFile;
 
-//    private Schema schema = null;
     private Row headerRow = null;
     private List<ExcelAttributeDescriptor> attrDescs = null;
     private Map<String, Integer> attrOrder = null;
     private XSSFWorkbook workbook = null;
     private XSSFSheet sheet = null;
-    private int rowNum = 0;
+    private CreationHelper createHelper = null;
 
     private TransferDescription td = null;
 //    private String iliGeomAttrName = null;
@@ -74,7 +77,6 @@ public class ExcelWriter implements IoxWriter {
     }
 
     private void init(File file, Settings settings) throws IoxException {
-        //this.outputStream = new FileOutputStream(file);
         this.outputFile = file;
     }
 
@@ -215,43 +217,75 @@ public class ExcelWriter implements IoxWriter {
                 workbook = new XSSFWorkbook(); 
                 sheet = workbook.createSheet();
                 headerRow = sheet.createRow(0);
-                
+                createHelper = workbook.getCreationHelper();
+
                 int cellnum = 0;
                 for (ExcelAttributeDescriptor attrDesc : attrDescs) {
                     Cell cell = headerRow.createCell(cellnum++);
-
                     cell.setCellValue(attrDesc.getAttributeName());
-                    
-//                    if(obj instanceof String)
-//                         cell.setCellValue((String)obj);
-//                     else if(obj instanceof Integer)
-//                         cell.setCellValue((Integer)obj);
-
                 }
             }
-             
-            
-            // Ich glaube ich muss sicherstellen, dass die Reihenfolge stimmt.
-            // Beim Header muss ich attrCellNums Map erstellen. Key ist attrName, value cell nr.
-            // äh nein, weil wenn ich von aussen attrDescs setzen, fehlt das. 
-            // mmmh, kann ich die headerRow verwenden und quasi aus dem Text das Attribut eruieren und entsprechend die reihe?
-            
+                         
             Row row = sheet.createRow(sheet.getLastRowNum()+1);
-            //int cellnum = 0;
             for (ExcelAttributeDescriptor attrDesc : attrDescs) {
                 String attrName = attrDesc.getAttributeName();
-                
+
                 int cellnum = getColumnIndex(attrName);
-                // if else trallala 
-                // -typen
-                // -null
-                String attrValue = iomObj.getattrvalue(attrName);
                 Cell cell = row.createCell(cellnum);
-                cell.setCellValue(attrValue);
 
-
+                // TODO Geometry
+                if (attrDesc.getBinding() == String.class) {
+                    String attrValue = iomObj.getattrvalue(attrName);
+                    cell.setCellValue(attrValue);
+                } else if (attrDesc.getBinding() == Integer.class) {
+                    if (iomObj.getattrvalue(attrName) != null) {
+                        int attrValue = Integer.valueOf(iomObj.getattrvalue(attrName)).intValue(); 
+                        cell.setCellValue(attrValue);
+                    }
+                } else if (attrDesc.getBinding() == Double.class) {
+                    if (iomObj.getattrvalue(attrName) != null) {
+                        double attrValue = Double.valueOf(iomObj.getattrvalue(attrName)).doubleValue();
+                        cell.setCellValue(attrValue);
+                    }
+                } else if (attrDesc.getBinding() == LocalDate.class) {
+                    if (iomObj.getattrvalue(attrName) != null) {
+                        LocalDate localDate = LocalDate.parse(iomObj.getattrvalue(attrName), DateTimeFormatter.ISO_LOCAL_DATE);
+                        CellStyle cellStyle = workbook.createCellStyle();
+//                        cellStyle.setDataFormat(createHelper.createDataFormat().getFormat("d.mm.yyyy"));
+                        cellStyle.setDataFormat((short) 14);
+                        cell.setCellValue(localDate);
+                        cell.setCellStyle(cellStyle);
+                    }
+                } else if (attrDesc.getBinding() == LocalDateTime.class) { 
+                    if (iomObj.getattrvalue(attrName) != null) {
+                        LocalDateTime localDateTime = LocalDateTime.parse(iomObj.getattrvalue(attrName));
+                        CellStyle cellStyle = workbook.createCellStyle();
+//                        cellStyle.setDataFormat(createHelper.createDataFormat().getFormat("d.mm.yyyy h:mm:ss"));
+                        cellStyle.setDataFormat((short) 22);
+                        cell.setCellValue(localDateTime);
+                        cell.setCellStyle(cellStyle);
+                    }
+                } else if (attrDesc.getBinding() == LocalTime.class) {
+                    if (iomObj.getattrvalue(attrName) != null) {
+                        LocalTime localTime = LocalTime.parse(iomObj.getattrvalue(attrName));
+                        CellStyle cellStyle = workbook.createCellStyle();
+                        // Subseconds würde gehen: HH:mm:ss.000
+                        // Dann get die Abkürzung mit setDataFormat nicht es müsste wohl createHelper.createDataFormat().getFormat()
+                        // verwendet werden.
+                        cellStyle.setDataFormat((short) 21);
+                        cell.setCellValue(DateUtil.convertTime(localTime.format(DateTimeFormatter.ofPattern("HH:mm:ss"))));
+                        cell.setCellStyle(cellStyle);
+                    }
+                } else if (attrDesc.getBinding() == Boolean.class) {
+                    if (iomObj.getattrvalue(attrName) != null) {
+                        boolean attrValue = Boolean.parseBoolean(iomObj.getattrvalue(attrName));
+                        cell.setCellValue(attrValue);
+                    }
+                } else {
+                    String attrValue = iomObj.getattrvalue(attrName);
+                    cell.setCellValue(attrValue);
+                }
             }
-            
         }
     }
     
@@ -267,10 +301,6 @@ public class ExcelWriter implements IoxWriter {
         throw new NoSuchElementException();
     }
     
-//    private int getRowNum() {
-//        return rowNum++;
-//    }
-
     @Override
     public void close() throws IoxException {
         try {
