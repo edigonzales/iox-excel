@@ -23,15 +23,15 @@ repositories {
 dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter:5.9.1'
     
-    implementation('ch.interlis:iox-ili:1.21.6') {
+    api('ch.interlis:iox-ili:1.21.6') {
         exclude group: 'ch.ehi', module: 'ehibasics'
     }
-    implementation group: 'ch.ehi', name: 'ehibasics', version: '1.4.1'
-    implementation group: 'ch.interlis', name: 'ili2c-tool', version: '5.2.2'
-    implementation group: 'ch.interlis', name: 'ili2c-core', version: '5.2.2'
+    api group: 'ch.ehi', name: 'ehibasics', version: '1.4.1'
+    api group: 'ch.interlis', name: 'ili2c-tool', version: '5.2.2'
+    api group: 'ch.interlis', name: 'ili2c-core', version: '5.2.2'
     
-    implementation 'org.apache.poi:poi:5.2.3'
-    implementation 'org.apache.poi:poi-ooxml:5.2.3'
+    api 'org.apache.poi:poi:5.2.3'
+    api 'org.apache.poi:poi-ooxml:5.2.3'
         
 }
 
